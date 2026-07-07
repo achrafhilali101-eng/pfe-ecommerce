@@ -105,6 +105,16 @@ class ProductCreate(BaseModel):
     initial_stock: int = Field(default=0, ge=0)
 
 
+class ProductUpdate(BaseModel):
+    """Tous les champs sont optionnels : seuls ceux fournis sont modifiés (PATCH partiel)."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = Field(default=None, gt=0)
+    category_id: Optional[str] = None
+    image_url: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
 # ---------- Stocks ----------
 
 class StockAdjust(BaseModel):
@@ -153,6 +163,7 @@ class SellerProductOut(BaseModel):
     name: str
     price: float
     is_active: bool
+    image_url: Optional[str] = None
     category: Optional[CategoryOut] = None
     stock: Optional[StockOut] = None
 

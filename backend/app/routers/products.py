@@ -106,3 +106,54 @@ def create_product(
     db.commit()
     db.refresh(product)
     return product
+
+
+def _get_own_product_or_403(db: Session, product_id: str, current_user: models.User) -> models.Product:
+    """Récupère un produit en vérifiant qu'il appartient bien au vendeur connecté."""
+    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Produit introuvable.")
+
+    seller = db.query(models.Seller).filter(models.Seller.user_id == current_user.id).first()
+    if not seller or product.seller_id != seller.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vous ne pouvez modifier que vos propres produits.",
+        )
+    return product
+
+
+@router.patch("/products/{product_id}", response_model=schemas.ProductOut)
+def update_product(
+    product_id: str,
+    payload: schemas.ProductUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_role("seller")),
+):
+    product = _get_own_product_or_403(db, product_id, current_user)
+
+    updates = payload.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(product, field, value)
+
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+@router.delete("/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_product(
+    product_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_role("seller")),
+):
+    """
+    Suppression douce (soft delete) : le produit passe en is_active=False et
+    disparaît du catalogue public, mais reste consultable via son ID direct --
+    ce qui préserve l'intégrité des commandes passées qui le référencent
+    (on ne casse jamais l'historique d'achat d'un client).
+    """
+    product = _get_own_product_or_403(db, product_id, current_user)
+    product.is_active = False
+    db.commit()
+    return None

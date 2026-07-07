@@ -106,3 +106,71 @@ def test_create_product_as_seller_succeeds(client):
 def test_create_product_without_auth_returns_401_or_403(client):
     response = client.post("/products", json={"name": "Sans auth", "price": 10.0})
     assert response.status_code in (401, 403)
+
+
+def test_update_product_as_owner_succeeds(client):
+    _, headers = register_user(client, email="edit_seller@test.com", role="seller")
+    create_response = client.post(
+        "/products", json={"name": "Avant modif", "price": 20.0}, headers=headers
+    )
+    product_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/products/{product_id}",
+        json={"name": "Après modif", "price": 35.0},
+        headers=headers,
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["name"] == "Après modif"
+    assert body["price"] == 35.0
+
+
+def test_update_product_as_non_owner_forbidden(client):
+    _, owner_headers = register_user(client, email="edit_owner@test.com", role="seller")
+    _, intruder_headers = register_user(client, email="edit_intruder@test.com", role="seller")
+
+    create_response = client.post(
+        "/products", json={"name": "Produit protégé", "price": 20.0}, headers=owner_headers
+    )
+    product_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/products/{product_id}",
+        json={"price": 999.0},
+        headers=intruder_headers,
+    )
+    assert response.status_code == 403
+
+
+def test_delete_product_soft_deletes_and_hides_from_catalog(client):
+    _, headers = register_user(client, email="delete_seller@test.com", role="seller")
+    create_response = client.post(
+        "/products", json={"name": "À supprimer", "price": 20.0}, headers=headers
+    )
+    product_id = create_response.json()["id"]
+
+    delete_response = client.delete(f"/products/{product_id}", headers=headers)
+    assert delete_response.status_code == 204
+
+    # Disparaît de la liste publique du catalogue...
+    list_response = client.get("/products", params={"search": "À supprimer"})
+    assert list_response.json()["total"] == 0
+
+    # ...mais reste consultable directement (préserve l'historique de commandes).
+    detail_response = client.get(f"/products/{product_id}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["is_active"] is False
+
+
+def test_delete_product_as_non_owner_forbidden(client):
+    _, owner_headers = register_user(client, email="delete_owner@test.com", role="seller")
+    _, intruder_headers = register_user(client, email="delete_intruder@test.com", role="seller")
+
+    create_response = client.post(
+        "/products", json={"name": "Protégé suppression", "price": 20.0}, headers=owner_headers
+    )
+    product_id = create_response.json()["id"]
+
+    response = client.delete(f"/products/{product_id}", headers=intruder_headers)
+    assert response.status_code == 403
