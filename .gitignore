@@ -1,0 +1,21 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.env
+
+# Data (trop volumineux pour git, à télécharger via README)
+data/raw/*.csv
+data/processed/*.csv
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# Modèles ML entraînés (trop volumineux, à régénérer)
+backend/app/ml/*.pkl
+backend/app/ml/*.joblib
