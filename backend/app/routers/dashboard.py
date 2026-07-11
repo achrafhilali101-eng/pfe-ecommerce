@@ -4,6 +4,8 @@ Endpoints du dashboard vendeur.
 GET /dashboard/summary   -> statistiques agrégées (CA, commandes, stock faible, courbe 30j)
 GET /dashboard/products  -> produits du vendeur connecté avec leur stock courant
 POST /dashboard/products -> création de produit (réutilise la logique de products.py)
+GET /dashboard/orders    -> commandes contenant au moins un produit du vendeur, avec
+                            les coordonnées de l'acheteur (nécessaire pour expédier)
 """
 
 from datetime import datetime, timedelta
@@ -115,3 +117,66 @@ def dashboard_summary(
         revenue_last_30_days=revenue_last_30_days,
         recent_movements=recent_movements,
     )
+
+
+@router.get("/orders", response_model=list[schemas.SellerOrderOut])
+def my_orders(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_role("seller")),
+):
+    """
+    Retourne les commandes contenant au moins un produit du vendeur connecté,
+    avec les coordonnées de l'acheteur (nom, email, adresse/téléphone de
+    livraison) nécessaires pour préparer l'expédition.
+
+    Si une commande contient aussi des produits d'AUTRES vendeurs (marketplace
+    multi-vendeurs), seules les lignes appartenant à CE vendeur sont incluses
+    et le total affiché ne porte que sur celles-ci -- on ne montre jamais les
+    produits d'un autre vendeur.
+    """
+    seller = _get_seller_or_404(db, current_user)
+
+    seller_product_ids = {
+        p.id for p in db.query(models.Product.id).filter(models.Product.seller_id == seller.id).all()
+    }
+    if not seller_product_ids:
+        return []
+
+    order_ids = (
+        db.query(models.OrderItem.order_id)
+        .filter(models.OrderItem.product_id.in_(seller_product_ids))
+        .distinct()
+        .all()
+    )
+    order_ids = [row.order_id for row in order_ids]
+    if not order_ids:
+        return []
+
+    orders = (
+        db.query(models.Order)
+        .options(
+            joinedload(models.Order.buyer),
+            joinedload(models.Order.items).joinedload(models.OrderItem.product),
+        )
+        .filter(models.Order.id.in_(order_ids))
+        .order_by(models.Order.created_at.desc())
+        .all()
+    )
+
+    result = []
+    for order in orders:
+        seller_items = [item for item in order.items if item.product_id in seller_product_ids]
+        result.append(
+            schemas.SellerOrderOut(
+                id=order.id,
+                status=order.status.value,
+                total_amount=round(sum(item.unit_price * item.quantity for item in seller_items), 2),
+                shipping_address=order.shipping_address,
+                shipping_phone=order.shipping_phone,
+                created_at=order.created_at,
+                buyer_name=order.buyer.full_name if order.buyer else None,
+                buyer_email=order.buyer.email if order.buyer else "",
+                items=[schemas.OrderItemOut.model_validate(item) for item in seller_items],
+            )
+        )
+    return result

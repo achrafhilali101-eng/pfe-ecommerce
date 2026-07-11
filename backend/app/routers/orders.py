@@ -28,7 +28,13 @@ def create_order(
     if not payload.items:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La commande est vide.")
 
-    order = models.Order(buyer_id=current_user.id, status=models.OrderStatus.PENDING, total_amount=0.0)
+    order = models.Order(
+        buyer_id=current_user.id,
+        status=models.OrderStatus.PENDING,
+        total_amount=0.0,
+        shipping_address=payload.shipping_address,
+        shipping_phone=payload.shipping_phone,
+    )
     db.add(order)
     db.flush()
 

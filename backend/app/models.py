@@ -153,6 +153,9 @@ class Order(Base):
     status = Column(Enum(OrderStatus), default=OrderStatus.PENDING, nullable=False)
     total_amount = Column(Float, nullable=False, default=0.0)
     stripe_payment_intent_id = Column(String(255), nullable=True)
+    shipping_address = Column(String(500), nullable=True)
+    shipping_phone = Column(String(30), nullable=True)
+    shipping_email = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     buyer = relationship("User", back_populates="orders")

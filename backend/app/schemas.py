@@ -132,6 +132,8 @@ class OrderItemCreate(BaseModel):
 
 class OrderCreate(BaseModel):
     items: List[OrderItemCreate]
+    shipping_address: str = Field(min_length=5, max_length=500)
+    shipping_phone: str = Field(min_length=6, max_length=30)
 
 
 class OrderItemOut(BaseModel):
@@ -149,7 +151,26 @@ class OrderOut(BaseModel):
     id: str
     status: str
     total_amount: float
+    shipping_address: Optional[str] = None
+    shipping_phone: Optional[str] = None
     created_at: datetime
+    items: List[OrderItemOut] = []
+
+
+class SellerOrderOut(BaseModel):
+    """
+    Commande vue depuis le dashboard vendeur : inclut les coordonnées de
+    l'acheteur (nom, email, téléphone/adresse de livraison) nécessaires pour
+    préparer et expédier la commande.
+    """
+    id: str
+    status: str
+    total_amount: float
+    shipping_address: Optional[str] = None
+    shipping_phone: Optional[str] = None
+    created_at: datetime
+    buyer_name: Optional[str] = None
+    buyer_email: str
     items: List[OrderItemOut] = []
 
 
