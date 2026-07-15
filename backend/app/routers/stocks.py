@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas
 from app.dependencies import require_role
+from app.ws_manager import manager
 
 router = APIRouter(prefix="/stocks", tags=["stocks"])
 
@@ -84,13 +85,22 @@ def adjust_stock(
         )
 
     db.refresh(product.stock)
+
+    manager.broadcast_from_sync({
+        "type": "stock_update",
+        "product_id": product.id,
+        "quantity": product.stock.quantity,
+    })
+
     return product.stock
 
 
-def decrement_stock_for_sale(db: Session, product_id: str, quantity: int) -> None:
+def decrement_stock_for_sale(db: Session, product_id: str, quantity: int) -> int:
     """
-    Fonction utilitaire réutilisée par le module de commandes (Jour 8) pour décrémenter
-    le stock de façon atomique au moment de l'achat. Lève une exception si stock insuffisant.
+    Fonction utilitaire réutilisée par le module de commandes pour décrémenter
+    le stock de façon atomique au moment de l'achat. Lève une exception si stock
+    insuffisant. Retourne la nouvelle quantité (utile pour diffuser l'info en
+    temps réel une fois la transaction globale validée -- voir orders.py).
     """
     stock = db.query(models.Stock).filter(models.Stock.product_id == product_id).with_for_update().first()
     if not stock or stock.quantity < quantity:
@@ -109,3 +119,4 @@ def decrement_stock_for_sale(db: Session, product_id: str, quantity: int) -> Non
     db.add(movement)
     # NB: le commit est laissé à l'appelant pour que ça fasse partie de la transaction
     # globale de création de commande (atomicité commande + stock).
+    return stock.quantity

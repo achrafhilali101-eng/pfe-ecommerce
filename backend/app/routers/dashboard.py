@@ -173,6 +173,7 @@ def my_orders(
                 total_amount=round(sum(item.unit_price * item.quantity for item in seller_items), 2),
                 shipping_address=order.shipping_address,
                 shipping_phone=order.shipping_phone,
+                shipping_email=order.shipping_email,
                 created_at=order.created_at,
                 buyer_name=order.buyer.full_name if order.buyer else None,
                 buyer_email=order.buyer.email if order.buyer else "",

@@ -153,8 +153,14 @@ class OrderOut(BaseModel):
     total_amount: float
     shipping_address: Optional[str] = None
     shipping_phone: Optional[str] = None
+    shipping_email: Optional[str] = None
     created_at: datetime
     items: List[OrderItemOut] = []
+
+
+class CheckoutSessionOut(BaseModel):
+    checkout_url: str
+    order_id: str
 
 
 class SellerOrderOut(BaseModel):
@@ -168,6 +174,7 @@ class SellerOrderOut(BaseModel):
     total_amount: float
     shipping_address: Optional[str] = None
     shipping_phone: Optional[str] = None
+    shipping_email: Optional[str] = None
     created_at: datetime
     buyer_name: Optional[str] = None
     buyer_email: str

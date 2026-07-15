@@ -44,6 +44,7 @@ def test_create_order_decrements_stock_and_creates_interaction(client, db_sessio
     assert body["total_amount"] == 60.0  # 20.0 * 3
     assert body["shipping_address"] == SHIPPING["shipping_address"]
     assert body["shipping_phone"] == SHIPPING["shipping_phone"]
+    assert body["shipping_email"] == "order_buyer@test.com"
 
     stock_response = client.get(f"/stocks/{product.id}")
     assert stock_response.json()["quantity"] == 7  # 10 - 3
